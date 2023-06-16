@@ -60,13 +60,43 @@ services:
       # - "traefik.http.services.dagster.loadbalancer.server.port=3000"
     volumes:
       - ../dagster:/usr/src/app
-  whoami:
-    # A container that exposes an API to show its IP address
-    image: traefik/whoami
+
+  metaduck:
+    <<: *project_defaults
+    build:
+      context: ./metaduck
+      dockerfile: Dockerfile
+    depends_on:
+      - reverse-proxy
+    ports:
+      - "3000:3000"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
-      - "traefik.http.routers.whoami.entrypoints=web"
+      - "traefik.http.routers.metaduck.rule=Host(`explore.localhost`)"
+    volumes:
+      - "/db-data-dir/:/container/directory"
+
+  minio:
+    <<: *project_defaults
+    image: minio/minio:RELEASE.2022-07-08T00-05-23Z
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - mkdir -p /data/default && /opt/bin/minio server --address :9000  --console-address :9001 /data
+    restart: always
+    volumes:
+      - type: bind
+        source: .nhost/data/nogit/minio
+        target: /data
+
+  # whoami:
+  #   # A container that exposes an API to show its IP address
+  #   image: traefik/whoami
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+  #     - "traefik.http.routers.whoami.entrypoints=web"
 
 volumes:
   traefik-ssl-certs:
