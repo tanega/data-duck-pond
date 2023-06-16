@@ -1,0 +1,111 @@
+version: "3.9"
+x-restart-policy: &restart_policy
+  restart: unless-stopped
+
+x-project-defaults: &project_defaults
+  <<: *restart_policy
+  networks:
+    - public
+  # extra_hosts:
+  #   - host.docker.internal:host-gateway
+  #   - data.local:host-gateway
+  #   - orchestration.data.local:host-gateway
+  env_file: ./.env
+services:
+  reverse-proxy:
+    <<: *project_defaults
+    image: ${TRAEFIK_IMAGE}
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      # - "/etc/traefik:/etc/traefik"
+      # - "traefik-ssl-certs:/ssl-certs"
+    # healthcheck:
+    #   test: ["CMD", "traefik", "healthcheck", "--ping"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 5s
+    command:
+      - "--ping"
+      - "--api.insecure=true"
+      - "--providers.docker"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - --entrypoints.websecure.address=:443
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+
+  dagster:
+    <<: *project_defaults
+    build:
+      context: ./dagster
+      dockerfile: Dockerfile
+      target: dev
+    image: dagster-pipeline
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3000/dagit_info"]
+    #   interval: 30s
+    #   timeout: 20s
+    #   retries: 3
+    depends_on:
+      - reverse-proxy
+    ports:
+      - "3000:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dagster.rule=Host(`orchestration.localhost`)"
+      - "traefik.http.routers.dagster.entrypoints=web"
+      # - "traefik.http.services.dagster.loadbalancer.server.port=3000"
+    volumes:
+      - ../dagster:/usr/src/app
+
+  metaduck:
+    <<: *project_defaults
+    build:
+      context: ./metaduck
+      dockerfile: Dockerfile
+    depends_on:
+      - reverse-proxy
+    ports:
+      - "3333:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.metaduck.rule=Host(`explore.localhost`)"
+    volumes:
+      - "../data/nogit/duckdb:/container/directory"
+
+  storage:
+    <<: *project_defaults
+    image: minio/minio:RELEASE.2022-07-08T00-05-23Z
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - mkdir -p /data/default && /opt/bin/minio server --address :9000  --console-address :9001 /data
+    restart: always
+    ports:
+      - "9001:9001"
+    volumes:
+      - "../data/nogit/minio:/data"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storage.rule=Host(`storage.localhost`)"
+
+  # whoami:
+  #   # A container that exposes an API to show its IP address
+  #   image: traefik/whoami
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+  #     - "traefik.http.routers.whoami.entrypoints=web"
+
+volumes:
+  traefik-ssl-certs:
+    driver: local
+
+networks:
+  public:
+    attachable: true
+    name: traefik

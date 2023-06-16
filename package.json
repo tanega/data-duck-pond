@@ -1,0 +1,25 @@
+{
+  "name": "data-duck-pond",
+  "version": "0.0.1",
+  "description": "## Requirements",
+  "main": "index.js",
+  "scripts": {
+    "d:e:f": "./scripts/docker.sh exec frontend sh",
+    "d:ps": "./scripts/docker.sh ps",
+    "d:build": "./scripts/docker.sh build",
+    "d:up": "./scripts/docker.sh up",
+    "d:up-d": "./scripts/docker.sh up -d",
+    "d:down": "./scripts/docker.sh down",
+    "d:down:all": "./scripts/docker.sh down -v --remove-orphans"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:tanega/data-duck-pond.git"
+  },
+  "author": "Gaëtan DUHAMEL",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tanega/data-duck-pond/issues"
+  },
+  "homepage": "https://github.com/tanega/data-duck-pond#readme"
+}
