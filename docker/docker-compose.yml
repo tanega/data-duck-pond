@@ -36,6 +36,73 @@ services:
       - "80:80"
       - "443:443"
       - "8080:8080"
+    # This service runs the postgres DB used by dagster for run storage, schedule storage,
+  # and event log storage.
+  postgres:
+    <<: *project_defaults
+    image: postgres:11
+    container_name: postgresql
+
+  # This service runs the gRPC server that loads your user code, in both dagit
+  # and dagster-daemon. By setting DAGSTER_CURRENT_IMAGE to its own image, we tell the
+  # run launcher to use this same image when launching runs in a new container as well.
+  # Multiple containers like this can be deployed separately - each just needs to run on
+  # its own port, and have its own entry in the workspace.yaml file that's loaded by dagit.
+  dagster_multi_user_code:
+    <<: *project_defaults
+    build:
+      context: ./dagster_multi
+      dockerfile: Dockerfile_user_code
+    container_name: user_code
+    image: user_code_image
+
+  # This service runs dagit, which loads your user code from the user code container.
+  # Since our instance uses the QueuedRunCoordinator, any runs submitted from dagit will be put on
+  # a queue and later dequeued and launched by dagster-daemon.
+  dagster_multi_dagit:
+    <<: *project_defaults
+    build:
+      context: ./dagster_multi
+      dockerfile: Dockerfile_dagster
+    entrypoint:
+      - dagit
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3000"
+      - -w
+      - workspace.yaml
+    container_name: dagster_multi_dagit
+    ports:
+      - "3030:3000"
+    volumes: # Make docker client accessible so we can terminate containers from dagit
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    depends_on:
+      - postgres
+      - dagster_multi_user_code
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dagster-multi.rule=Host(`orch-multi.localhost`)"
+      - "traefik.http.routers.dagster-multi.entrypoints=web"
+
+  # This service runs the dagster-daemon process, which is responsible for taking runs
+  # off of the queue and launching them, as well as creating runs from schedules or sensors.
+  daemon:
+    <<: *project_defaults
+    build:
+      context: ./dagster_multi
+      dockerfile: Dockerfile_dagster
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: daemon
+    volumes: # Make docker client accessible so we can launch containers using host docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    depends_on:
+      - postgres
+      - dagster_multi_user_code
 
   dagster:
     <<: *project_defaults
