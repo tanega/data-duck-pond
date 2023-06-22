@@ -1,0 +1,10 @@
+load_from:
+  # Each entry here corresponds to a service in the docker-compose file that exposes user code.
+  - grpc_server:
+      host: dagster_multi_user_code
+      port: 4000
+      location_name: "edagster_multi_user_code_1"
+  - grpc_server:
+      host: dagster_multi_tutorial
+      port: 5000
+      location_name: "dagster_multi_tutorial"
