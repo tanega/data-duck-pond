@@ -1,0 +1,11 @@
+dagster
+dagster-cloud
+pandas
+matplotlib
+dagster-duckdb
+dagster-duckdb-pandas
+Faker==18.4.0
+
+[dev]
+dagit
+pytest

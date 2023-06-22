@@ -56,6 +56,14 @@ services:
     container_name: user_code
     image: user_code_image
 
+  dagster_multi_tutorial:
+    <<: *project_defaults
+    build:
+      context: ./dagster-tutorial
+      dockerfile: Dockerfile
+    container_name: dagster_multi_tutorial
+    image: dagster_multi_tutorial_image
+
   # This service runs dagit, which loads your user code from the user code container.
   # Since our instance uses the QueuedRunCoordinator, any runs submitted from dagit will be put on
   # a queue and later dequeued and launched by dagster-daemon.
@@ -83,7 +91,7 @@ services:
       - dagster_multi_user_code
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dagster-multi.rule=Host(`orch-multi.localhost`)"
+      - "traefik.http.routers.dagster-multi.rule=Host(`orchestrator.localhost`)"
       - "traefik.http.routers.dagster-multi.entrypoints=web"
 
   # This service runs the dagster-daemon process, which is responsible for taking runs
@@ -103,30 +111,7 @@ services:
     depends_on:
       - postgres
       - dagster_multi_user_code
-
-  dagster:
-    <<: *project_defaults
-    build:
-      context: ./dagster
-      dockerfile: Dockerfile
-      target: dev
-    image: dagster-pipeline
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:3000/dagit_info"]
-    #   interval: 30s
-    #   timeout: 20s
-    #   retries: 3
-    depends_on:
-      - reverse-proxy
-    ports:
-      - "3000:3000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dagster.rule=Host(`orchestration.localhost`)"
-      - "traefik.http.routers.dagster.entrypoints=web"
-      # - "traefik.http.services.dagster.loadbalancer.server.port=3000"
-    volumes:
-      - ../dagster:/usr/src/app
+      - dagster_multi_tutorial
 
   metaduck:
     <<: *project_defaults
@@ -139,7 +124,7 @@ services:
       - "3333:3000"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.metaduck.rule=Host(`explore.localhost`)"
+      - "traefik.http.routers.metaduck.rule=Host(`bi.localhost`)"
     volumes:
       - "../data/nogit/duckdb:/container/directory"
 
@@ -174,5 +159,5 @@ volumes:
 
 networks:
   public:
-    attachable: true
-    name: traefik
+    driver: bridge
+    name: public

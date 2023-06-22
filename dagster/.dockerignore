@@ -1,6 +1,0 @@
-.gitignore
-.env*
-.vscode/
-.pytest_cache/
-data/
-dist/
